@@ -208,7 +208,7 @@ class Train():
 
         for iteration in range(0, self.args.iterations):
             logger.trace("Training iteration: %s", iteration)
-            save_iteration = iteration % self.args.save_interval == 0
+            save_iteration = iteration > 0 and iteration % self.args.save_interval == 0
             viewer = display_func if save_iteration or self.save_now else None
             timelapse = self.timelapse if save_iteration else None
             trainer.train_one_step(viewer, timelapse)

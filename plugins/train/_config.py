@@ -34,6 +34,9 @@ class Config(FaceswapConfig):
         self.add_section(title=section,
                          info="Options that apply to all models" + ADDITIONAL_INFO)
         self.add_item(
+            section=section, title="learning_rate", datatype=float, default=5e-5, rounding=1,
+            min_max=(1e-6, 1e-1), info="Learning rate")
+        self.add_item(
             section=section, title="icnr_init", datatype=bool, default=False,
             info="Use ICNR Kernel Initializer for upscaling.\nThis can help reduce the "
                  "'checkerboard effect' when upscaling the image.")
@@ -191,3 +194,23 @@ class Config(FaceswapConfig):
         self.add_item(
             section=section, title="coverage", datatype=float, default=62.5, rounding=1,
             min_max=(62.5, 100.0), info=COVERAGE_INFO)
+
+        # << GAN MODEL OPTIONS >> #
+        section = "model.gan"
+        self.add_section(title=section,
+                         info="A GAN version of the Original "
+                              "Model by xhdhr10000.\n" + ADDITIONAL_INFO)
+        self.add_item(
+            section=section, title="lowmem", datatype=bool, default=False,
+            info="Lower memory mode. Set to 'True' if having issues with VRAM useage.\nNB: Models "
+                 "with a changed lowmem mode are not compatible with each other.")
+        self.add_item(
+            section=section, title="mask_type", datatype=str, default="none",
+            choices=["none", "dfaker", "dfl_full"],
+            info="The mask to be used for training. Select none to not use a mask")
+        self.add_item(
+            section=section, title="coverage", datatype=float, default=62.5, rounding=1,
+            min_max=(62.5, 100.0), info=COVERAGE_INFO)
+        self.add_item(
+            section=section, title="crossentropy_loss", datatype=bool, default=True,
+            info='Whether to use binary_crossentropy as loss function')

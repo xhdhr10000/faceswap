@@ -301,6 +301,10 @@ class ModelBase():
             if side == "a" and not self.predict and initialize:
                 logger.verbose("Using DSSIM Loss")
             loss_func = DSSIMObjective()
+        elif self.config.get('crossentropy_loss', False):
+            if side == "a" and not self.predict and initialize:
+                logger.verbose("Using binary_crossentropy Loss")
+            loss_func = losses.binary_crossentropy
         else:
             if side == "a" and not self.predict and initialize:
                 logger.verbose("Using Mean Absolute Error Loss")
