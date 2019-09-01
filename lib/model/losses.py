@@ -836,3 +836,6 @@ def ms_ssim_loss(y_true, y_pred):
     msssim = K.expand_dims(K.expand_dims(1.0 - ms_ssim(y_true, y_pred), axis=-1), axis=-1)
     # need to expand to [1, height, width] dimensions for Keras ... modify to not be hard-coded
     return K.tile(msssim, [1, 64, 64])
+
+def lsgan_loss(y_true, y_pred):
+    return K.mean(K.square(y_true-y_pred))/2.

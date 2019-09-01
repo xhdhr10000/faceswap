@@ -19,7 +19,7 @@ from keras.optimizers import Adam
 from keras.utils import get_custom_objects, multi_gpu_model
 
 from lib import Serializer
-from lib.model.losses import DSSIMObjective, PenalizedLoss
+from lib.model.losses import DSSIMObjective, PenalizedLoss, lsgan_loss
 from lib.model.nn_blocks import NNBlocks
 from lib.multithreading import MultiThread
 from plugins.train._config import Config
