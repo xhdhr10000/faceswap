@@ -223,12 +223,12 @@ class Batcher():
         logger.debug("Compiling samples: (samples: %s)", num_images)
         ret = dict()
         for i, side in enumerate(['a', 'b']):
-            images = images if images is not None else self.target[i]
+            image = images if images is not None else self.target[i]
             sample = [samples[0:num_images]] if samples is not None else [self.samples[i][0:num_images]]
             if self.use_mask:
                 retval = [tgt[0:num_images] for tgt in images]
             else:
-                retval = [images[0:num_images]]
+                retval = [image[0:num_images]]
             retval = sample + retval
             ret[side] = retval
         return ret
