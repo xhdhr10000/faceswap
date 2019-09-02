@@ -62,36 +62,12 @@ class Model(ModelBase):
                                             norm=self.norm,
                                             model_capacity=self.model_capacity
                                            )
-        self.netDA = self.build_discriminator(nc_in=self.nc_D_inp,
-                                              input_size=self.IMAGE_SHAPE[0],
-                                              use_self_attn=self.use_self_attn,
-                                              norm=self.norm
-                                             )
-        self.netDB = self.build_discriminator(nc_in=self.nc_D_inp,
-                                              input_size=self.IMAGE_SHAPE[0],
-                                              use_self_attn=self.use_self_attn,
-                                              norm=self.norm
-                                             )
-
-        x = Input(shape=self.IMAGE_SHAPE, name='face') # dummy input tensor
-        self.netGA = KerasModel(x, self.decoder_A(self.encoder(x)))
-        self.netGB = KerasModel(x, self.decoder_B(self.encoder(x)))
-
-        # define variables
-        self.distorted_A, self.fake_A, self.mask_A, \
-        self.path_A, self.path_mask_A, self.path_abgr_A, self.path_bgr_A = self.define_variables(netG=self.netGA)
-        self.distorted_B, self.fake_B, self.mask_B, \
-        self.path_B, self.path_mask_B, self.path_abgr_B, self.path_bgr_B = self.define_variables(netG=self.netGB)
-        self.real_A = Input(shape=self.IMAGE_SHAPE)
-        self.real_B = Input(shape=self.IMAGE_SHAPE)
-        self.mask_eyes_A = Input(shape=self.IMAGE_SHAPE)
-        self.mask_eyes_B = Input(shape=self.IMAGE_SHAPE)
 
         self.add_network("encoder", None, self.encoder)
         self.add_network("decoder", "a", self.decoder_A)
         self.add_network("decoder", "b", self.decoder_B)
-        self.add_network("discriminator", "a", self.netDA)
-        self.add_network("discriminator", "b", self.netDB)
+        # self.add_network("discriminator", "a", self.netDA)
+        # self.add_network("discriminator", "b", self.netDB)
         logger.debug("Added networks")
 
     def compile_predictors(self, initialize=True):
@@ -104,6 +80,34 @@ class Model(ModelBase):
     def build_autoencoders(self):
         """ Initialize original model """
         logger.debug("Initializing model")
+        self.netDA = self.build_discriminator(nc_in=self.nc_D_inp,
+                                              input_size=self.IMAGE_SHAPE[0],
+                                              use_self_attn=self.use_self_attn,
+                                              norm=self.norm
+                                             )
+        self.netDB = self.build_discriminator(nc_in=self.nc_D_inp,
+                                              input_size=self.IMAGE_SHAPE[0],
+                                              use_self_attn=self.use_self_attn,
+                                              norm=self.norm
+                                             )
+
+        encoder = self.networks['encoder'].network
+        decoder_A = self.networks['decoder_a'].network
+        decoder_B = self.networks['decoder_b'].network
+        x = Input(shape=self.IMAGE_SHAPE, name='face') # dummy input tensor
+        self.netGA = KerasModel(x, decoder_A(encoder(x)))
+        self.netGB = KerasModel(x, decoder_B(encoder(x)))
+
+        # define variables
+        self.distorted_A, self.fake_A, self.mask_A, \
+        self.path_A, self.path_mask_A, self.path_abgr_A, self.path_bgr_A = self.define_variables(netG=self.netGA)
+        self.distorted_B, self.fake_B, self.mask_B, \
+        self.path_B, self.path_mask_B, self.path_abgr_B, self.path_bgr_B = self.define_variables(netG=self.netGB)
+        self.real_A = Input(shape=self.IMAGE_SHAPE)
+        self.real_B = Input(shape=self.IMAGE_SHAPE)
+        self.mask_eyes_A = Input(shape=self.IMAGE_SHAPE)
+        self.mask_eyes_B = Input(shape=self.IMAGE_SHAPE)
+
         # Loss function weights configuration
         loss_weights = {}
         loss_weights['w_D'] = 0.1 # Discriminator
@@ -126,7 +130,6 @@ class Model(ModelBase):
 
         self.add_predictor('a', self.netGA)
         self.add_predictor('b', self.netGB)
-
         logger.debug("Initialized model")
 
     def build_encoder(self, nc_in=3,
