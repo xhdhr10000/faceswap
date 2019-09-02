@@ -30,14 +30,8 @@ class Trainer(TrainerBase):
                      self.__class__.__name__, model, batch_size)
         super().__init__(model, images, batch_size)
         self.sides = sorted(key for key in self.images.keys())
-        self.training_sides = sorted(key for key in self.model.trainers.keys())
 
-        self.batchers = {side: Batcher(side,
-                                       images if side.startswith('comb') else images[side],
-                                       self.model,
-                                       self.use_mask,
-                                       batch_size)
-                         for side in self.training_sides}
+        self.batcher = Batcher(images, self.model, self.use_mask, batch_size)
 
         self.tensorboard = self.set_tensorboard()
         self.samples = Samples(self.model,
@@ -115,13 +109,9 @@ class Trainer(TrainerBase):
         """ Train a batch """
         logger.trace("Training one step: (iteration: %s)", self.model.iterations)
         do_preview = False if viewer is None else True
-        loss = dict()
-        for side, batcher in self.batchers.items():
-            if self.pingpong.active and side != self.pingpong.side:
-                continue
-            loss[side] = batcher.train_one_batch(do_preview)
-            if do_preview and not batcher.is_generator:
-                self.samples.images[side] = batcher.compile_sample(self.batch_size)
+        loss = self.batcher.train_one_batch(do_preview)
+        if do_preview:
+            self.samples.images = self.batcher.compile_sample(self.batch_size)
 
         self.model.state.increment_iterations()
 
@@ -168,26 +158,22 @@ class Trainer(TrainerBase):
 
 class Batcher():
     """ Batch images from a single side """
-    def __init__(self, side, images, model, use_mask, batch_size):
-        logger.debug("Initializing %s: side: '%s', num_images: %s, batch_size: %s)",
-                     self.__class__.__name__, side, len(images), batch_size)
+    def __init__(self, images, model, use_mask, batch_size):
+        logger.debug("Initializing %s: num_images: %s, batch_size: %s)",
+                     self.__class__.__name__, len(images), batch_size)
         self.model = model
         self.use_mask = use_mask
-        self.side = side
         self.target = None
         self.mask = None
         self.valid = np.ones((batch_size, 1))
         self.fake = np.zeros((batch_size, 1))
-        if isinstance(images, dict):
-            self.is_generator = True
-            self.feed = [self.load_generator().minibatch_ab(images[side], batch_size, side) for side in images.keys()]
-        else:
-            self.is_generator = False
-            self.feed = [self.load_generator().minibatch_ab(images, batch_size, self.side)]
+        self.feed = dict()
+        for side in images.keys():
+            self.feed[side] = self.load_generator().minibatch_ab(images[side], batch_size, side)
 
     def load_generator(self):
         """ Pass arguments to TrainingDataGenerator and return object """
-        logger.debug("Loading generator: %s", self.side)
+        logger.debug("Loading generator")
         input_size = self.model.input_shape[0]
         output_size = self.model.output_shape[0]
         logger.debug("input_size: %s, output_size: %s", input_size, output_size)
@@ -196,33 +182,33 @@ class Batcher():
 
     def train_one_batch(self, do_preview):
         """ Train a batch """
-        logger.trace("Training one step: (side: %s)", self.side)
-        x, y = self.get_next(do_preview)
-        if self.is_generator:
-            loss = self.model.trainers[self.side].train_on_batch(x, [self.valid, self.valid])
-        else:
-            loss = self.model.trainers[self.side].train_on_batch(y, self.valid, direct_input=True)
-            loss += self.model.trainers[self.side].train_on_batch(x, self.fake)
-            loss *= 0.5
-        if not isinstance(loss, list): loss = [loss]
+        logger.trace("Training one step")
+        data_a, data_b = self.get_next(do_preview)
+        errDA, errDB = self.model.train_one_batch_D(data_A=data_a, data_B=data_b)
+
+        data_a, data_b = self.get_next(do_preview)
+        errGA, errGB = self.model.train_one_batch_G(data_A=data_a, data_B=data_b)
+
+        loss = { 'a': [ errDA[0] ], 'b': [ errDB[0] ] }
+        for i, loss_name in enumerate(['ttl', 'adv', 'recon', 'edge', 'pl']):
+            la = errGA[i][0] if loss_name in ['ttl', 'pl'] else errGA[i]
+            lb = errGB[i][0] if loss_name in ['ttl', 'pl'] else errGB[i]
+            loss['a'].append(la)
+            loss['b'].append(lb)
         return loss
 
     def get_next(self, do_preview):
         """ Return the next batch from the generator
             Items should come out as: (warped, target [, mask]) """
-        xs = []
-        ys = []
-        for feed in self.feed:
-            samples, x, y = next(feed)
-            self.samples = samples if do_preview and not self.is_generator else None
-            self.target = x if do_preview else None
-            xs.append(x)
-            ys.append(y)
-        return xs, ys
+        samples_a, x_a, y_a = next(self.feed['a'])
+        samples_b, x_b, y_b = next(self.feed['b'])
+        self.samples = [samples_a, samples_b] if do_preview else None
+        self.target = [x_a, x_b] if do_preview else None
+        return [x_a, y_a], [x_b, y_b]
 
     def compile_mask(self, batch):
         """ Compile the mask into training data """
-        logger.trace("Compiling Mask: (side: '%s')", self.side)
+        logger.trace("Compiling Mask")
         mask = batch[-1]
         retval = list()
         for idx in range(len(batch) - 1):
@@ -232,18 +218,20 @@ class Batcher():
 
     def compile_sample(self, batch_size, samples=None, images=None):
         """ Training samples to display in the viewer """
-        if self.is_generator: return None
         num_images = self.model.training_opts.get("preview_images", 14)
         num_images = min(batch_size, num_images)
-        logger.debug("Compiling samples: (side: '%s', samples: %s)", self.side, num_images)
-        images = images if images is not None else self.target
-        samples = [samples[0:num_images]] if samples is not None else [self.samples[0:num_images]]
-        if self.use_mask:
-            retval = [tgt[0:num_images] for tgt in images]
-        else:
-            retval = [images[0:num_images]]
-        retval = samples + retval
-        return retval
+        logger.debug("Compiling samples: (samples: %s)", num_images)
+        ret = dict()
+        for i, side in enumerate(['a', 'b']):
+            images = images if images is not None else self.target[i]
+            sample = [samples[0:num_images]] if samples is not None else [self.samples[i][0:num_images]]
+            if self.use_mask:
+                retval = [tgt[0:num_images] for tgt in images]
+            else:
+                retval = [images[0:num_images]]
+            retval = sample + retval
+            ret[side] = retval
+        return ret
 
 class Samples():
     """ Display samples for preview and timelapse """
@@ -303,7 +291,7 @@ class Samples():
         figure = np.vstack((header, figure))
 
         logger.debug("Compiled sample")
-        return np.clip(figure * 255, 0, 255).astype('uint8')
+        return np.clip(figure * 127.0 + 127.0, 0, 255).astype('uint8')
 
     @staticmethod
     def resize_sample(side, sample, target_size):

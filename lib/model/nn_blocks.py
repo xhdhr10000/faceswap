@@ -167,12 +167,12 @@ def normalization(inp, norm='none', group='16'):
     return var_x
 
 
-def upscale_ps(inp, filters, initializer, use_norm=False, norm="none"):
+def upscale_ps(inp, filters, use_norm=False, norm="none"):
     """ GAN Upscaler - Pixel Shuffler """
     var_x = Conv2D(filters * 4,
                    kernel_size=3,
                    kernel_regularizer=regularizers.l2(GAN22_REGULARIZER),
-                   kernel_initializer=initializer,
+                   kernel_initializer=GAN22_CONV_INIT,
                    padding="same")(inp)
     var_x = LeakyReLU(0.2)(var_x)
     var_x = normalization(var_x, norm, filters) if use_norm else var_x

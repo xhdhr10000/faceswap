@@ -223,7 +223,7 @@ class ImageManipulation():
     def color_adjust(img):
         """ Color adjust RGB image """
         logger.trace("Color adjusting image")
-        return img.astype('float32') / 255.0
+        return img.astype('float32') / 127.0 - 1.0
 
     @staticmethod
     def separate_mask(image):
