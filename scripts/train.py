@@ -306,14 +306,14 @@ class Train():
         set_session(tf.Session(config=config))
         logger.debug("Set Tensorflow 'allow_growth' option")
 
-    def show(self, image, name=""):
+    def show(self, image, name="", iteration=None):
         """ Generate the preview and write preview file output """
         logger.trace("Updating preview: (name: %s)", name)
         try:
             scriptpath = os.path.realpath(os.path.dirname(sys.argv[0]))
             if self.args.write_image:
                 logger.trace("Saving preview to disk")
-                img = "training_preview.jpg"
+                img = "training_preview_"+iteration+".jpg" if iteration else 'training_preview.jpg'
                 imgfile = os.path.join(scriptpath, img)
                 cv2.imwrite(imgfile, image)  # pylint: disable=no-member
                 logger.trace("Saved preview to: '%s'", img)

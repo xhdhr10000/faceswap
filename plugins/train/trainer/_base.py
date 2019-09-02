@@ -174,7 +174,7 @@ class TrainerBase():
         if do_preview:
             samples = self.samples.show_sample()
             if samples is not None:
-                viewer(samples, "Training - 'S': Save Now. 'ENTER': Save and Quit")
+                viewer(samples, "Training - 'S': Save Now. 'ENTER': Save and Quit", iteration=self.model.state.iterations)
 
         if do_timelapse:
             self.timelapse.output_timelapse()
