@@ -9,6 +9,7 @@ from keras.layers.advanced_activations import LeakyReLU
 from keras.models import Model as KerasModel
 from keras.optimizers import Adam
 import keras.backend as K
+from keras_vggface.vggface import VGGFace
 
 from lib.model.layers import PixelShuffler
 from lib.model.nn_blocks import upscale_ps, upscale_nn, conv_gan, conv_d_gan, res_block_gan, self_attn_block, Lambda
@@ -119,12 +120,16 @@ class Model(ModelBase):
         # Init. loss config.
         loss_config = {}
         loss_config["gan_training"] = "mixup_LSGAN" # "mixup_LSGAN" or "relativistic_avg_LSGAN"
-        loss_config['use_PL'] = False
+        loss_config['use_PL'] = True
         loss_config["PL_before_activ"] = False
         loss_config['use_mask_hinge_loss'] = False
         loss_config['m_mask'] = 0.
         loss_config['lr_factor'] = 1.
         loss_config['use_cyclic_loss'] = False
+
+        # VGGFace ResNet50
+        vggface = VGGFace(include_top=False, model='resnet50', input_shape=(224, 224, 3))
+        self.build_pl_model(vggface_model=vggface, before_activ=loss_config["PL_before_activ"])
 
         self.build_train_functions(loss_weights=loss_weights, **loss_config)
 
@@ -319,6 +324,22 @@ class Model(ModelBase):
         self.netGB_train = K.function([self.distorted_B, self.real_B, self.mask_eyes_B],
                                       [loss_GB, loss_adv_GB, loss_recon_GB, loss_edge_GB, loss_pl_GB],
                                       training_updates)
+
+    def build_pl_model(self, vggface_model, before_activ=False):
+        # Define Perceptual Loss Model
+        vggface_model.trainable = False
+        if before_activ == False:
+            out_size112 = vggface_model.layers[1].output
+            out_size55 = vggface_model.layers[36].output
+            out_size28 = vggface_model.layers[78].output
+            out_size7 = vggface_model.layers[-2].output
+        else:
+            out_size112 = vggface_model.layers[15].output # misnamed: the output size is 55
+            out_size55 = vggface_model.layers[35].output
+            out_size28 = vggface_model.layers[77].output
+            out_size7 = vggface_model.layers[-3].output
+        self.vggface_feats = KerasModel(vggface_model.input, [out_size112, out_size55, out_size28, out_size7])
+        self.vggface_feats.trainable = False
 
     def train_one_batch_G(self, data_A, data_B):
         if len(data_A) == 4 and len(data_B) == 4:

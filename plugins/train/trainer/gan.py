@@ -191,8 +191,8 @@ class Batcher():
 
         loss = { 'a': [ errDA[0] ], 'b': [ errDB[0] ] }
         for i, loss_name in enumerate(['ttl', 'adv', 'recon', 'edge', 'pl']):
-            la = errGA[i][0] if loss_name in ['ttl', 'pl'] else errGA[i]
-            lb = errGB[i][0] if loss_name in ['ttl', 'pl'] else errGB[i]
+            la = errGA[i][0] if isinstance(errGA[i], list) or isinstance(errGA[i], np.ndarray) else errGA[i]
+            lb = errGB[i][0] if isinstance(errGB[i], list) or isinstance(errGB[i], np.ndarray) else errGB[i]
             loss['a'].append(la)
             loss['b'].append(lb)
         return loss
