@@ -313,7 +313,7 @@ class Train():
             scriptpath = os.path.realpath(os.path.dirname(sys.argv[0]))
             if self.args.write_image:
                 logger.trace("Saving preview to disk")
-                img = "training_preview_"+iteration+".jpg" if iteration else 'training_preview.jpg'
+                img = "training_preview_"+str(iteration)+".jpg" if iteration else 'training_preview.jpg'
                 imgfile = os.path.join(scriptpath, img)
                 cv2.imwrite(imgfile, image)  # pylint: disable=no-member
                 logger.trace("Saved preview to: '%s'", img)
