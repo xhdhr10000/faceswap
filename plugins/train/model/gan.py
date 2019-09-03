@@ -63,12 +63,22 @@ class Model(ModelBase):
                                             norm=self.norm,
                                             model_capacity=self.model_capacity
                                            )
+        self.discriminator_a = self.build_discriminator(nc_in=self.nc_D_inp,
+                                              input_size=self.IMAGE_SHAPE[0],
+                                              use_self_attn=self.use_self_attn,
+                                              norm=self.norm
+                                             )
+        self.discriminator_b = self.build_discriminator(nc_in=self.nc_D_inp,
+                                              input_size=self.IMAGE_SHAPE[0],
+                                              use_self_attn=self.use_self_attn,
+                                              norm=self.norm
+                                             )
 
         self.add_network("encoder", None, self.encoder)
         self.add_network("decoder", "a", self.decoder_A)
         self.add_network("decoder", "b", self.decoder_B)
-        # self.add_network("discriminator", "a", self.netDA)
-        # self.add_network("discriminator", "b", self.netDB)
+        self.add_network("discriminator", "a", self.discriminator_a)
+        self.add_network("discriminator", "b", self.discriminator_b)
         logger.debug("Added networks")
 
     def compile_predictors(self, initialize=True):
@@ -81,21 +91,16 @@ class Model(ModelBase):
     def build_autoencoders(self):
         """ Initialize original model """
         logger.debug("Initializing model")
-        self.netDA = self.build_discriminator(nc_in=self.nc_D_inp,
-                                              input_size=self.IMAGE_SHAPE[0],
-                                              use_self_attn=self.use_self_attn,
-                                              norm=self.norm
-                                             )
-        self.netDB = self.build_discriminator(nc_in=self.nc_D_inp,
-                                              input_size=self.IMAGE_SHAPE[0],
-                                              use_self_attn=self.use_self_attn,
-                                              norm=self.norm
-                                             )
 
         encoder = self.networks['encoder'].network
         decoder_A = self.networks['decoder_a'].network
         decoder_B = self.networks['decoder_b'].network
+        discriminator_a = self.networks['discriminator_a'].network
+        discriminator_b = self.networks['discriminator_b'].network
         x = Input(shape=self.IMAGE_SHAPE, name='face') # dummy input tensor
+        dx = Input(shape=(self.IMAGE_SHAPE[0], self.IMAGE_SHAPE[1], self.nc_D_inp)) # dummy input tensor
+        self.netDA = KerasModel(dx, discriminator_a(dx))
+        self.netDB = KerasModel(dx, discriminator_b(dx))
         self.netGA = KerasModel(x, decoder_A(encoder(x)))
         self.netGB = KerasModel(x, decoder_B(encoder(x)))
 
