@@ -58,7 +58,7 @@ class Convert():
                                    (self.input_size, self.input_size),
                                    interpolation=cv2.INTER_AREA)  # pylint: disable=no-member
         coverage_face = np.expand_dims(coverage_face, 0)
-        np.clip(coverage_face / 255.0, 0.0, 1.0, out=coverage_face)
+        np.clip(coverage_face / 127.0 - 1.0, -1.0, 1.0, out=coverage_face)
 
         if self.input_mask_shape:
             mask = np.zeros(self.input_mask_shape, np.float32)
@@ -74,7 +74,7 @@ class Convert():
         new_face = cv2.resize(new_face,  # pylint: disable=no-member
                               (coverage, coverage),
                               interpolation=cv2.INTER_CUBIC)  # pylint: disable=no-member
-        np.clip(new_face * 255.0, 0.0, 255.0, out=new_face)
+        np.clip(new_face * 127.0 + 127.0, 0.0, 255.0, out=new_face)
 
         if self.args.smooth_box:
             self.smooth_box(old_face, new_face)

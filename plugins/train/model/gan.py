@@ -385,3 +385,13 @@ class Model(ModelBase):
 
     def transform_B2A(self, img):
         return self.path_abgr_A([[img]])
+
+    def converter(self, swap):
+        """ Converter for autoencoder models """
+        logger.debug("Getting Converter: (swap: %s)", swap)
+        if swap:
+            retval = self.path_bgr_A
+        else:
+            retval = self.path_bgr_B
+        logger.debug("Got Converter: %s", retval)
+        return retval
